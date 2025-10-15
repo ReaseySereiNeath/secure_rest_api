@@ -1,1 +1,104 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.myenv/
+.venv/
+ENV/
+env.bak/
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Pyre type checker
+.pyre/
+
+# C extensions
+*.so
+
+# IDEs / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# PyCharm
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Environment files
 .env
+.env.*
+*.env
+
+# SQLite / other local databases
+*.db
+*.sqlite3
+
+# MacOS / Windows system files
+.DS_Store
+Thumbs.db
+
+# Local config
+config.json
+secrets.json
+
+# Generated or cache files
+*.tmp
+*.bak
+*.old
+.cache/
+__pypackages__/
+
+# FastAPI specific
+*.pid
+*.sock
+*.log
+
+# Docker / deployment
+docker-compose.override.yml
+*.pid
