@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from database import Base
 
 class User(Base):
@@ -9,3 +9,12 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+
+class Item (Base):
+    __tablename__ = "items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    description = Column(String)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    

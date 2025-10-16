@@ -1,33 +1,12 @@
 # main.py
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from database import get_db
+from fastapi.security import OAuth2PasswordRequestForm
+from database import get_db 
 from models import User
 from schemas import UserCreate, UserOut
-from auth import hash_password
-from dotenv import load_dotenv
-import os
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jose import JWTError, jwt
-from datetime import datetime, timedelta
-from auth import verify_password
-
-
-# Load environment variables from .env
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
-
-# JWT token creation
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
+from auth import hash_password, verify_password
+import oauth2
 
 app = FastAPI()
 
@@ -80,33 +59,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    # Create JWT token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=access_token_expires
-    )
+    # Create JWT token by calling the function from oauth2.py
+    access_token = oauth2.create_access_token(data={"sub": user.username})
 
     # Return token
     return {"access_token": access_token, "token_type": "bearer"}
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        return username
-    except JWTError:
-        raise credentials_exception
 
 @app.get("/me")
-def read_current_user(username: str = Depends(get_current_user)):
-    return {"logged_in_as": username}
+def read_current_user(current_user: User = Depends(oauth2.get_current_user)):
+    return {"logged_in_as": current_user}
