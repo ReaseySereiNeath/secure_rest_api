@@ -53,6 +53,7 @@ coverage.xml
 
 # IDEs / Editors
 .vscode/
+vscode/
 .idea/
 *.swp
 *.swo
@@ -82,6 +83,7 @@ logs/
 # MacOS / Windows system files
 .DS_Store
 Thumbs.db
+test.db
 
 # Local config
 config.json
