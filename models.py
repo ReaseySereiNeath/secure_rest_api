@@ -1,5 +1,6 @@
 # models.py
 from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
 from database import Base
 
 class User(Base):
@@ -9,6 +10,9 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    
+    # Relationship — link User → Item
+    items = relationship("Item", back_populates="owner")
 
 class Item (Base):
     __tablename__ = "items"
@@ -17,4 +21,7 @@ class Item (Base):
     title = Column(String, index=True)
     description = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
+    # Relationship — link Item → User
+    owner = relationship("User", back_populates="items")
     
