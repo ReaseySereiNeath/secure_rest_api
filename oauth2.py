@@ -76,3 +76,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
         
     return user
+
+# --- Refresh Token Creation ---
+def create_refresh_token(data: dict):
+    """
+    Creates a long-lived refresh token (default: 7 days).
+    """
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=7)
+    to_encode.update({"exp": expire})
+    refresh_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return refresh_jwt

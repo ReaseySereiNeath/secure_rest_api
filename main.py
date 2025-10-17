@@ -6,7 +6,8 @@ from database import get_db
 from models import User, Item
 from schemas import UserCreate, UserOut, ItemCreate, ItemOut
 from auth import hash_password, verify_password
-from oauth2 import create_access_token, get_current_user
+from oauth2 import create_access_token, get_current_user, create_refresh_token, SECRET_KEY, ALGORITHM
+from jose import JWTError, jwt
 
 app = FastAPI()
 
@@ -55,7 +56,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # Find user by username
     user = db.query(User).filter(User.username == form_data.username).first()
-    if not user:
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     # Verify password
@@ -64,14 +65,34 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     # Create JWT token by calling the function from oauth2.py
     access_token = create_access_token(data={"sub": user.username})
+    refresh_token = create_refresh_token(data={"sub": user.username})
 
     # Return token
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "refresh_token": refresh_token,"token_type": "bearer"}
 
+
+@app.post("/refresh")
+def refresh_token(token: str):
+    """
+    Refresh the access token using a valid refresh token.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+        # Create a new access token (short-lived)
+        new_access_token = create_access_token(data={"sub": username})
+        return {"access_token": new_access_token, "token_type": "bearer"}
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    
 
 @app.get("/me")
 def read_current_user(current_user: User = Depends(get_current_user)):
-    return {"logged_in_as": current_user, "email": current_user.email}
+    return {"logged_in_as": current_user.username, "email": current_user.email}
 
 
 # ---------- Protected CRUD: /items ----------
