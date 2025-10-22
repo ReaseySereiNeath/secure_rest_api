@@ -8,8 +8,12 @@ from schemas import UserCreate, UserOut, ItemCreate, ItemOut
 from auth import hash_password, verify_password
 from oauth2 import create_access_token, get_current_user, create_refresh_token, SECRET_KEY, ALGORITHM
 from jose import JWTError, jwt
+from middlewares.logging import LoggingMiddleware
+from middlewares.error_handler import ExceptionLoggingMiddleware
 
 app = FastAPI()
+app.add_middleware(ExceptionLoggingMiddleware)
+app.add_middleware(LoggingMiddleware)
 
 @app.get("/")
 def home():
@@ -93,6 +97,29 @@ def refresh_token(token: str):
 @app.get("/me")
 def read_current_user(current_user: User = Depends(get_current_user)):
     return {"logged_in_as": current_user.username, "email": current_user.email}
+
+
+@app.get("/admin/users")
+def get_all_users(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin-only route: list all users.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    users = db.query(User).all()
+    return [{"id": u.id, "username": u.username, "email": u.email, "is_admin": u.is_admin} for u in users]
+
+
+@app.get("/crash-test")
+def crash_test():
+    raise RuntimeError("This is a simulated crash for testing the error logger.")
 
 
 # ---------- Protected CRUD: /items ----------
