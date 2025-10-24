@@ -1,5 +1,5 @@
 # main.py
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from database import get_db 
@@ -10,10 +10,13 @@ from oauth2 import create_access_token, get_current_user, create_refresh_token, 
 from jose import JWTError, jwt
 from middlewares.logging import LoggingMiddleware
 from middlewares.error_handler import ExceptionLoggingMiddleware
+from middlewares.rate_limit import register_rate_limiter, limiter
 
 app = FastAPI()
+register_rate_limiter(app)
 app.add_middleware(ExceptionLoggingMiddleware)
 app.add_middleware(LoggingMiddleware)
+
 
 @app.get("/")
 def home():
@@ -57,7 +60,12 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
     # Find user by username
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -144,7 +152,9 @@ def create_item(
     return new_item
 
 @app.get("/items", response_model=list[ItemOut])
+@limiter.limit("10/minute")
 def get_items(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -193,3 +203,13 @@ def delete_item(
     db.commit()
     return {"message": f"Item {item_id} deleted successfully"}
 
+
+# Health check route — no limit
+@app.get("/health")
+@limiter.exempt
+def health_check(db: Session = Depends(get_db)):
+    try:
+        db.execute("SELECT 1")
+        return {"status": "healthy"}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable")

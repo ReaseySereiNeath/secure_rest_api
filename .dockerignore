@@ -1,0 +1,13 @@
+.git
+__pycache__/
+*.py[cod]
+*.log
+myenv/
+logs/
+test.db
+*.sqlite
+*.db-journal
+.DS_Store
+.vscode/
+.idea/
+.env.*
