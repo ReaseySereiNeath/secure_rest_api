@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables based on ENV (defaults to .env.dev)
+env = os.getenv("ENV", "dev")
+load_dotenv(f".env.{env}")
 
 # --- Configuration ---
 # This scheme tells FastAPI where to go to get the token (the /login endpoint)

@@ -5,7 +5,7 @@ services:
     build: .
     container_name: secure_rest_api_prod
     env_file:
-      - .env
+      - .env.prod
     ports:
       - "8000:8000"
     command: [
