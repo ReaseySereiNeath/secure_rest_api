@@ -11,6 +11,11 @@ from jose import JWTError, jwt
 from middlewares.logging import LoggingMiddleware
 from middlewares.error_handler import ExceptionLoggingMiddleware
 from middlewares.rate_limit import register_rate_limiter, limiter
+from fastapi.openapi.utils import get_openapi
+from config import LOGIN_RATE_LIMIT, ITEMS_RATE_LIMIT
+import os
+from alembic.config import Config
+from alembic import command
 
 app = FastAPI()
 register_rate_limiter(app)
@@ -60,7 +65,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit(LOGIN_RATE_LIMIT)
 def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -152,7 +157,7 @@ def create_item(
     return new_item
 
 @app.get("/items", response_model=list[ItemOut])
-@limiter.limit("10/minute")
+@limiter.limit(ITEMS_RATE_LIMIT)
 def get_items(
     request: Request,
     db: Session = Depends(get_db),
@@ -213,3 +218,44 @@ def health_check(db: Session = Depends(get_db)):
         return {"status": "healthy"}
     except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title="Secure REST API",
+        version="1.0.0",
+        description="A secure REST API with JWT authentication, logging, error handling, and rate limiting.",
+        routes=app.routes,
+    )
+    
+    # Add global JWT (Bearer) security definition
+    openapi_schema["components"] = openapi_schema.get("components", {})
+    openapi_schema["components"]["securitySchemes"] = {
+        "OAuth2PasswordBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+    openapi_schema["security"] = [{"OAuth2PasswordBearer": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
+def run_migrations_on_startup():
+    """
+    Automatically apply Alembic migrations at startup.
+    This keeps the DB schema in sync with your SQLAlchemy models.
+    """
+    print("Running Alembic migrations on startup...")
+    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", "alembic")
+    command.upgrade(alembic_cfg, "head")
+    print("Database is up-to-date.")
+
+@app.on_event("startup")
+def startup_event():
+    run_migrations_on_startup()

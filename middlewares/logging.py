@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 
 from dotenv import load_dotenv
 from jose import JWTError, jwt
@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from middlewares.json_logger import JsonFormatter
+import uuid
 
 env = os.getenv("ENV", "dev")
 load_dotenv(f".env.{env}")
@@ -17,17 +18,20 @@ load_dotenv(f".env.{env}")
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
+
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
 json_formatter = JsonFormatter()
 
-access_handler = RotatingFileHandler("logs/app.log", maxBytes=2_000_000, backupCount=5)
-access_handler.setFormatter(json_formatter)
+# --- Handlers (daily rotation) ---
+access_handler = TimedRotatingFileHandler("logs/app.log", when="midnight", backupCount=7)
+error_handler = TimedRotatingFileHandler("logs/error.log", when="midnight", backupCount=7)
 
-error_handler = RotatingFileHandler("logs/error.log", maxBytes=2_000_000, backupCount=5)
+access_handler.setFormatter(json_formatter)
 error_handler.setFormatter(json_formatter)
 
+# --- Loggers ---
 access_logger = logging.getLogger("access_logger")
 access_logger.setLevel(logging.INFO)
 access_logger.propagate = False
@@ -40,12 +44,22 @@ error_logger.propagate = False
 if not error_logger.handlers:
     error_logger.addHandler(error_handler)
 
+# --- Optional: Console logs in debug ---
+if os.getenv("DEBUG", "False").lower() == "true":
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(json_formatter)
+    access_logger.addHandler(console_handler)
+    error_logger.addHandler(console_handler)
+
+
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
         method = request.method
         path = request.url.path
         user = "anonymous"
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
 
         # Skip sensitive routes (login/register)
         if path in ["/login", "/register"]:
@@ -66,6 +80,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             response: Response = await call_next(request)
             process_time = time.time() - start_time
             log_fields = {
+                "env": env,
+                "request_id": request_id,
                 "user": user,
                 "path": path,
                 "method": method,
@@ -83,6 +99,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             process_time = time.time() - start_time
             error_fields = {
+                "env": env,
+                "request_id": request_id,
                 "user": user,
                 "path": path,
                 "method": method,

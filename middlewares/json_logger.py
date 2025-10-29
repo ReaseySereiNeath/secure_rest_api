@@ -10,6 +10,10 @@ class JsonFormatter(logging.Formatter):
         }
 
         # Add extra context if present
+        if hasattr(record, "env"):
+            log_entry["env"] = record.env
+        if hasattr(record, "request_id"):
+            log_entry["request_id"] = record.request_id
         if hasattr(record, "user"):
             log_entry["user"] = record.user
         if hasattr(record, "path"):

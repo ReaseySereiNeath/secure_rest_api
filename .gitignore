@@ -3,6 +3,13 @@ __pycache__/
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+*.pdb
+*.so
+*.egg
+*.egg-info/
+.eggs/
 
 # Virtual environments
 venv/
@@ -31,6 +38,7 @@ var/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+pip-wheel-metadata/
 
 # Unit test / coverage reports
 htmlcov/
@@ -105,3 +113,14 @@ __pypackages__/
 # Docker / deployment
 docker-compose.override.yml
 *.pid
+
+# Ignore automatically generated Alembic revisions
+alembic/versions/autogen_*.py
+
+# Docker volumes / data
+data/
+dev_db/
+app_data/
+volumes/
+mnt/
+.dockerignore

@@ -1,19 +1,18 @@
-version: '3.9'
+version: "3.9"
 
 services:
   api:
     build: .
     container_name: secure_rest_api_prod
-    env_file:
-      - .env.prod
     ports:
       - "8000:8000"
-    command: [
-      "uvicorn",
-      "main:app",
-      "--host",
-      "0.0.0.0",
-      "--port",
-      "8000"
-    ]
-    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      - ENV=prod
+    volumes:
+      - app_data:/data     # mount /data for persistent DB storage
+    restart: unless-stopped
+
+volumes:
+  app_data:
