@@ -1,7 +1,10 @@
 # main.py
+import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import text
+
 from database import get_db 
 from models import User, Item
 from schemas import UserCreate, UserOut, ItemCreate, ItemOut
@@ -12,10 +15,13 @@ from middlewares.logging import LoggingMiddleware
 from middlewares.error_handler import ExceptionLoggingMiddleware
 from middlewares.rate_limit import register_rate_limiter, limiter
 from fastapi.openapi.utils import get_openapi
-from config import LOGIN_RATE_LIMIT, ITEMS_RATE_LIMIT
+# Config-driven limits and migration flag
+from config import LOGIN_RATE_LIMIT, ITEMS_RATE_LIMIT, RUN_MIGRATIONS_ON_STARTUP
 import os
 from alembic.config import Config
 from alembic import command
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 register_rate_limiter(app)
@@ -28,22 +34,29 @@ def home():
     return {"message": "Welcome to Secure REST API"}
 
 
-# Add your /users route here
-@app.get("/users")
-def read_users(db: Session = Depends(get_db)):
-    # Fetch all users from the database
+@app.get("/users", response_model=list[UserOut])
+def read_users(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     users = db.query(User).all()
     return users
 
 
 @app.post("/register", response_model=UserOut)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    # Check if username or email already exists
-    existing_user = db.query(User).filter(User.email == user.email).first()
-    if existing_user:
+    existing_username = db.query(User).filter(User.username == user.username).first()
+    if existing_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Username already registered",
+        )
+
+    existing_email = db.query(User).filter(User.email == user.email).first()
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
         )
 
     # Hash the password
@@ -74,10 +87,6 @@ def login(
     # Find user by username
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    # Verify password
-    if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     # Create JWT token by calling the function from oauth2.py
@@ -214,7 +223,7 @@ def delete_item(
 @limiter.exempt
 def health_check(db: Session = Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return {"status": "healthy"}
     except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
@@ -258,4 +267,9 @@ def run_migrations_on_startup():
 
 @app.on_event("startup")
 def startup_event():
-    run_migrations_on_startup()
+    if RUN_MIGRATIONS_ON_STARTUP:
+        try:
+            run_migrations_on_startup()
+        except Exception:
+            logger.exception("Alembic migrations failed during startup")
+            raise

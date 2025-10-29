@@ -18,3 +18,6 @@ REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", "43
 DEFAULT_RATE_LIMIT = os.getenv("DEFAULT_RATE_LIMIT", "5/minute")
 LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5/minute")
 ITEMS_RATE_LIMIT = os.getenv("ITEMS_RATE_LIMIT", "10/minute")
+
+# Migration control
+RUN_MIGRATIONS_ON_STARTUP = os.getenv("RUN_MIGRATIONS_ON_STARTUP", "false").lower() == "true"

@@ -16,8 +16,20 @@ def register_rate_limiter(app: FastAPI):
 
     @app.exception_handler(RateLimitExceeded)
     async def rate_limit_exceeded(request: Request, exc: RateLimitExceeded):
+        retry_after = None
+        if isinstance(getattr(exc, "headers", None), dict):
+            retry_after = exc.headers.get("Retry-After")
+        elif hasattr(request.state, "view_rate_limit"):
+            reset_in = getattr(request.state.view_rate_limit, "reset_in", None)
+            if reset_in is not None:
+                try:
+                    retry_after = str(max(0, int(reset_in)))
+                except (TypeError, ValueError):
+                    retry_after = str(reset_in)
+
+        headers = {"Retry-After": str(retry_after)} if retry_after is not None else {}
         return JSONResponse(
             status_code=429,
-            content={"detail": f"Too many requests. Try again in {exc.detail['remaining']}s"},
-            headers={"Retry-After": str(exc.detail['remaining'])}
-)
+            content={"detail": "Too many requests. Try again later."},
+            headers=headers,
+        )
